@@ -42,6 +42,7 @@ LogFile="$StudyFolder/processing/logs/${scriptName}_${TimeStamp}.log"
 
 export con_HCPPIPEDIR="/opt/HCP/HCPpipelines"
 source /opt/qunex/library/environment/qunex_environment.sh  >> ${LogFile}
+source /opt/qunex/library/environment/qunex_envStatus.sh --envstatus >> ${LogFile}
 
 cores=1      # the number of subjects to process in parallel
 threads=1    # the number of bold files to process in parallel
