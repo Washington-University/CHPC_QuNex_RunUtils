@@ -67,7 +67,6 @@ echo "   Log file output      : $LogFile"                                       
 echo ""                                                                           2>&1 | tee -a ${LogFile}
 echo "-- ${scriptName}: Specified Command-Line Options - End --"                  2>&1 | tee -a ${LogFile}
 echo ""                                                                           2>&1 | tee -a ${LogFile}
-echo "----------------- Start of ${scriptName} -----------------------"           2>&1 | tee -a ${LogFile}
 echo "   "                                                                        2>&1 | tee -a ${LogFile}
 
 # -- Define QUNEX command
@@ -203,8 +202,3 @@ ${QUNEXCOMMAND} mapIO \
 }
 
 main $@
-
-echo ""                                                                       2>&1 | tee -a ${LogFile}
-echo "   Check log file for final outputs --> $LogFile"                       2>&1 | tee -a ${LogFile}
-echo ""                                                                       2>&1 | tee -a ${LogFile}
-echo "----------------- End of ${scriptName} -----------------------"         2>&1 | tee -a ${LogFile}
