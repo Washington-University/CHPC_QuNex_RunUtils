@@ -30,6 +30,7 @@ scriptName=$(basename ${0})
 # =-=-=-=-=-= GENERAL OPTIONS =-=-=-=-=-=
 #
 # -- key variables to set
+PameterFolder=`opts_GetOpt "--parameterfolder" $@`
 StudyFolder=`opts_GetOpt "--studyfolder" $@`
 Subject=`opts_GetOpt "--subjects" "$@"`
 Overwrite=`opts_GetOpt "--overwrite" $@`
@@ -90,12 +91,12 @@ log_Msg()
 
 main() {
 
-###############	createStudy
+#########################	createStudy
 ${QUNEXCOMMAND} createStudy --studyfolder="${StudyFolder}"
 cd ${SubjectsFolder}
-cp /home/junilc/pipeline_tools_production_n_func/xnat_pbs_jobs_control_CCF_HCA/SpecFiles_v4/* "${StudyFolder}/subjects/specs"
+cp ${PameterFolder}/* "${StudyFolder}/subjects/specs"
 
-####################	HCPLSImport
+#########################	HCPLSImport
 ${QUNEXCOMMAND} HCPLSImport \
 	--subjectsfolder="${StudyFolder}/subjects"  \
 	--inbox="${StudyFolder}/unprocessed" \
@@ -103,13 +104,13 @@ ${QUNEXCOMMAND} HCPLSImport \
 	--overwrite="${Overwrite}" \
 	--archive="leave"
 
-####################	setupHCP
+#########################	setupHCP
 ${QUNEXCOMMAND} setupHCP \
     --subjectsfolder="${StudyFolder}/subjects" \
     --sessions="${Subject}" \
 	--filename="original"
  
-####################	createBatch
+#########################	createBatch
 ${QUNEXCOMMAND} createBatch \
  --subjectsfolder="${StudyFolder}/subjects" \
  --overwrite="append"
@@ -148,7 +149,7 @@ if [ "${HCPpipelineProcess}" == "StructuralPreprocessing" ]; then
 		--cores="${cores}" \
 		--nprocess="0"
 
-	########################### hcp3
+	######################### hcp3
 	${QUNEXCOMMAND} hcp3 \
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
@@ -160,7 +161,7 @@ elif [ "${HCPpipelineProcess}" == "FunctionalPreprocessing" ]; then
 	mv ${StudyFolder}/T*w "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
 	mv ${StudyFolder}/MNINonLinear "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
 
-	####################### hcp4
+	######################### hcp4
 	${QUNEXCOMMAND} hcp4 \
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
@@ -168,7 +169,7 @@ elif [ "${HCPpipelineProcess}" == "FunctionalPreprocessing" ]; then
 		--cores="${cores}" \
 		--nprocess="0"
 		
-	####################### hcp5
+	######################### hcp5
 	${QUNEXCOMMAND} hcp5 \
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
@@ -179,8 +180,8 @@ elif [ "${HCPpipelineProcess}" == "FunctionalPreprocessing" ]; then
 elif [ "${HCPpipelineProcess}" == "DiffusionPreprocessing" ]; then
 	mv ${StudyFolder}/T*w "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
 	mv ${StudyFolder}/MNINonLinear "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
-
-	####################### hcpd
+	
+	######################### hcpd
 	${QUNEXCOMMAND} hcpd \
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
