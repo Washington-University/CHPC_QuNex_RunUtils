@@ -30,7 +30,7 @@ scriptName=$(basename ${0})
 # =-=-=-=-=-= GENERAL OPTIONS =-=-=-=-=-=
 #
 # -- key variables to set
-PameterFolder=`opts_GetOpt "--parameterfolder" $@`
+ParameterFolder=`opts_GetOpt "--parameterfolder" $@`
 StudyFolder=`opts_GetOpt "--studyfolder" $@`
 Subject=`opts_GetOpt "--subjects" "$@"`
 Overwrite=`opts_GetOpt "--overwrite" $@`
@@ -94,7 +94,7 @@ main() {
 #########################	createStudy
 ${QUNEXCOMMAND} createStudy --studyfolder="${StudyFolder}"
 cd ${SubjectsFolder}
-cp ${PameterFolder}/* "${StudyFolder}/subjects/specs"
+cp ${ParameterFolder}/* "${StudyFolder}/subjects/specs"
 
 #########################	HCPLSImport
 ${QUNEXCOMMAND} HCPLSImport \
