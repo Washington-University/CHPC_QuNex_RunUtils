@@ -93,7 +93,7 @@ main() {
 ###############	createStudy
 ${QUNEXCOMMAND} createStudy --studyfolder="${StudyFolder}"
 cd ${SubjectsFolder}
-cp /home/junilc/pipeline_tools_production_n_func/xnat_pbs_jobs_control_CCF_HCA/SpecFiles_v3/* "${StudyFolder}/subjects/specs"
+cp /home/junilc/pipeline_tools_production_n_func/xnat_pbs_jobs_control_CCF_HCA/SpecFiles_v4/* "${StudyFolder}/subjects/specs"
 
 ####################	HCPLSImport
 ${QUNEXCOMMAND} HCPLSImport \
