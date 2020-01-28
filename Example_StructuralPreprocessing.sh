@@ -4,7 +4,7 @@
 
 module load singularity-3.2.1
 
-singularity exec -B <directory of run_qunex.sh & SpecFiles Folder>:/opt/xnat_pbs_jobs_control,<directory of gradient_coefficient_files>:/export/HCP/gradient_coefficient_files <path to qunex oontainer/qunex.sif> /opt/xnat_pbs_jobs_control/run_qunex.sh \
+singularity exec -B <directory of run_qunex.sh>,<directory of parameter file>,<directory of gradient_coefficient_files>:/export/HCP/gradient_coefficient_files <path to qunex oontainer/qunex.sif> <directory of run_qunex.sh>/run_qunex.sh \  --parameterfolder=<directory of parameter file> \
   --studyfolder=<Processing Folder>/<subject_name> \
   --subjects=<subject_name> \
   --overwrite=yes \
