@@ -25,7 +25,7 @@ echo ""
 
 # -- Define script name
 scriptName=$(basename ${0})
-scriptPath=$(dirname ${0})
+#scriptPath=$(dirname ${0})
 
 # =-=-=-=-=-= GENERAL OPTIONS =-=-=-=-=-=
 #
@@ -107,7 +107,7 @@ if [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ]; then
 	## Using a template file here instead of a generated file.  The generated file needs modifications before it's useful.
 	StudyFolderRepl=`printf ${StudyFolder} | sed -e 's/[\/&]/\\\\&/g'`
 	## Remove runs from batch template that aren’t part of BoldList, preserving the order in the template
-	cat $scriptPath/batch.txt.tmpl | \
+	cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | \
 		sed -e "s/@@@Subject@@@/${Subject}/g" -e "s/@@@SubjectPart@@@/${SubjectPart}/g" -e "s/@@@StudyFolder@@@/${StudyFolderRepl}/g" | \
 		tee >(grep -v "^[0-9][0-9]*:") >(sleep 1;egrep "filename\((${BoldList})\)") > $BatchFile
 
