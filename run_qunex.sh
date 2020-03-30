@@ -15,9 +15,8 @@ done
 # -- Setup variables
 # ------------------------------------------------------------------------------
 
-# -- Clear variables
 unset StudyFolder
-unset InputDataLocation
+#unset InputDataLocation
 unset ParametersFile
 
 echo "" 
@@ -26,6 +25,7 @@ echo ""
 
 # -- Define script name
 scriptName=$(basename ${0})
+scriptPath=$(dirname ${0})
 
 # =-=-=-=-=-= GENERAL OPTIONS =-=-=-=-=-=
 #
@@ -33,15 +33,19 @@ scriptName=$(basename ${0})
 ParameterFolder=`opts_GetOpt "--parameterfolder" $@`
 StudyFolder=`opts_GetOpt "--studyfolder" $@`
 Subject=`opts_GetOpt "--subjects" "$@"`
+SubjectPart=`echo "$Subject" | sed -e "s/_.*$//"`
 Overwrite=`opts_GetOpt "--overwrite" $@`
 HCPpipelineProcess=`opts_GetOpt "--hcppipelineprocess" $@`
 Scan=`opts_GetOpt "--scan" $@`
+
+export StudyFolder Subject SubjectPart
 
 TimeStamp=`date +%Y-%m-%d-%H-%M-%S`
 mkdir -p $StudyFolder/processing/logs &> /dev/null
 LogFile="$StudyFolder/processing/logs/${scriptName}_${TimeStamp}.log"
 
-export con_HCPPIPEDIR="/opt/HCP/HCPpipelines"
+# only if overriding the default setting of /opt/HCP/HCPpipelines
+#export con_HCPPIPEDIR="/opt/HCP/HCPpipelines"
 source /opt/qunex/library/environment/qunex_environment.sh  >> ${LogFile}
 source /opt/qunex/library/environment/qunex_envStatus.sh --envstatus >> ${LogFile}
 
@@ -57,13 +61,14 @@ echo "-- ${scriptName}: Specified Command-Line Options - Start --"              
 echo "   "                                                                        2>&1 | tee -a ${LogFile}
 echo "   "                                                                        2>&1 | tee -a ${LogFile}
 echo "   QUNEX Study          : $StudyFolder"                                     2>&1 | tee -a ${LogFile}
-echo "   Input data location  : $InputDataLocation"                               2>&1 | tee -a ${LogFile}
+#echo "   Input data location  : $InputDataLocation"                               2>&1 | tee -a ${LogFile}
 echo "   Cores to use         : $cores"                                           2>&1 | tee -a ${LogFile}
 echo "   Threads to use       : $threads"                                         2>&1 | tee -a ${LogFile}
 echo "   QUNEX subjects folder: $SubjectsFolder"                                  2>&1 | tee -a ${LogFile}
 echo "   QUNEX batch file     : $BatchFile"                                       2>&1 | tee -a ${LogFile}
 echo "   Overwrite HCP step   : $Overwrite"                                       2>&1 | tee -a ${LogFile}
 echo "   Subjects to run      : $Subject"                                         2>&1 | tee -a ${LogFile}
+echo "   HCP pipelne process  : $HCPpipelineProcess"                              2>&1 | tee -a ${LogFile}
 echo "   Log file output      : $LogFile"                                         2>&1 | tee -a ${LogFile}
 echo ""                                                                           2>&1 | tee -a ${LogFile}
 echo "-- ${scriptName}: Specified Command-Line Options - End --"                  2>&1 | tee -a ${LogFile}
@@ -94,26 +99,44 @@ main() {
 #########################	createStudy
 ${QUNEXCOMMAND} createStudy --studyfolder="${StudyFolder}"
 cd ${SubjectsFolder}
-cp ${ParameterFolder}/* "${StudyFolder}/subjects/specs"
 
-#########################	HCPLSImport
-${QUNEXCOMMAND} HCPLSImport \
-	--subjectsfolder="${StudyFolder}/subjects"  \
-	--inbox="${StudyFolder}/unprocessed" \
-	--action="link" \
-	--overwrite="${Overwrite}" \
-	--archive="leave"
+if [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ]; then
 
-#########################	setupHCP
-${QUNEXCOMMAND} setupHCP \
-    --subjectsfolder="${StudyFolder}/subjects" \
-    --sessions="${Subject}" \
-	--filename="original"
- 
-#########################	createBatch
-${QUNEXCOMMAND} createBatch \
- --subjectsfolder="${StudyFolder}/subjects" \
- --overwrite="append"
+
+	BoldList=`opts_GetOpt "--boldlist" $@`
+	## Using a template file here instead of a generated file.  The generated file needs modifications before it's useful.
+	StudyFolderRepl=`printf ${StudyFolder} | sed -e 's/[\/&]/\\\\&/g'`
+	## Remove runs from batch template that aren’t part of BoldList, preserving the order in the template
+	cat $scriptPath/batch.txt.tmpl | \
+		sed -e "s/@@@Subject@@@/${Subject}/g" -e "s/@@@SubjectPart@@@/${SubjectPart}/g" -e "s/@@@StudyFolder@@@/${StudyFolderRepl}/g" | \
+		tee >(grep -v "^[0-9][0-9]*:") >(sleep 1;egrep "filename\((${BoldList})\)") > $BatchFile
+
+else
+
+	## Copy in ParameterFiles and SpecFiles (NOTE:  Not necessary for MR-FIX)
+	if [ ! -z "$ParameterFolder" ]; then
+		cp ${ParameterFolder}/* "${StudyFolder}/subjects/specs"
+	fi
+	
+	${QUNEXCOMMAND} HCPLSImport \
+		--subjectsfolder="${StudyFolder}/subjects"  \
+		--inbox="${StudyFolder}/unprocessed" \
+		--action="link" \
+		--overwrite="${Overwrite}" \
+		--archive="leave"
+	
+	#########################	setupHCP
+	${QUNEXCOMMAND} setupHCP \
+	    --subjectsfolder="${StudyFolder}/subjects" \
+	    --sessions="${Subject}" \
+		--filename="original"
+	 
+	#########################	createBatch
+	${QUNEXCOMMAND} createBatch \
+	 --subjectsfolder="${StudyFolder}/subjects" \
+	 --overwrite="append"
+
+fi
 
 sleep 5
 mkdir ${StudyFolder}/ProcessingInfo
@@ -138,24 +161,21 @@ if [ "${HCPpipelineProcess}" == "StructuralPreprocessing" ]; then
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
 		--overwrite="${Overwrite}" \
-		--cores="${cores}" \
-		--nprocess="0"
+		--cores="${cores}" 
 				
 	######################### hcp2
 	${QUNEXCOMMAND} hcp2 \
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
 		--overwrite="${Overwrite}" \
-		--cores="${cores}" \
-		--nprocess="0"
+		--cores="${cores}" 
 
 	######################### hcp3
 	${QUNEXCOMMAND} hcp3 \
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
 		--overwrite="${Overwrite}" \
-		--cores="${cores}" \
-		--nprocess="0"
+		--cores="${cores}" 
 		
 elif [ "${HCPpipelineProcess}" == "FunctionalPreprocessing" ]; then
 	mv ${StudyFolder}/T*w "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
@@ -166,16 +186,44 @@ elif [ "${HCPpipelineProcess}" == "FunctionalPreprocessing" ]; then
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
 		--overwrite="${Overwrite}" \
-		--cores="${cores}" \
-		--nprocess="0"
+		--cores="${cores}" 
 		
 	######################### hcp5
 	${QUNEXCOMMAND} hcp5 \
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
 		--overwrite="${Overwrite}" \
-		--cores="${cores}" \
-		--nprocess="0"
+		--cores="${cores}" 
+		
+elif [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ]; then
+	mkdir -p "${StudyFolder}/subjects/${Subject}/hcp/${Subject}" 
+	mv ${StudyFolder}/T*w "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
+	mv ${StudyFolder}/MNINonLinear "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
+	#mv ${StudyFolder}/*fMRI_* "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
+
+	#IcaFixBolds=`opts_GetOpt "--icafixbolds" $@`
+	#ReapplyFixBolds=`opts_GetOpt "--reapplyfixbolds" $@`
+
+	######################### hcp_ICAFix
+	${QUNEXCOMMAND} hcp_ICAFix \
+		--sessions="${StudyFolder}/processing/batch.txt" \
+		--subjectsfolder="${StudyFolder}/subjects" \
+		--overwrite="${Overwrite}" \
+		--hcp_matlab_mode="compiled" \
+		--cores="${cores}" 
+		## NOTE:  We've included only scans that exist int the batch.txt file, and they're in the preferred order
+		#--hcp_icafix_bolds="${IcaFixBolds}" \
+		
+	## No ReapplyFix
+	########################## hcp_ReApplyFix
+	#${QUNEXCOMMAND} hcp_ReApplyFix \
+	#	--sessions="${StudyFolder}/processing/batch.txt" \
+	#	--subjectsfolder="${StudyFolder}/subjects" \
+	#	--overwrite="${Overwrite}" \
+	#	--hcp_icafix_bolds="${ReapplyFixBolds}" \
+	#	--hcp_matlab_mode="compiled" \
+	#	--cores="${cores}" \
+	#	--nprocess="0"
 
 elif [ "${HCPpipelineProcess}" == "DiffusionPreprocessing" ]; then
 	mv ${StudyFolder}/T*w "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
@@ -186,8 +234,7 @@ elif [ "${HCPpipelineProcess}" == "DiffusionPreprocessing" ]; then
 		--sessions="${StudyFolder}/processing/batch.txt" \
 		--subjectsfolder="${StudyFolder}/subjects" \
 		--overwrite="${Overwrite}" \
-		--cores="${cores}" \
-		--nprocess="0"
+		--cores="${cores}" 
 		
 fi
 
