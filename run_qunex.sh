@@ -25,7 +25,7 @@ echo ""
 
 # -- Define script name
 scriptName=$(basename ${0})
-#scriptPath=$(dirname ${0})
+scriptPath=$(dirname ${0})
 
 # =-=-=-=-=-= GENERAL OPTIONS =-=-=-=-=-=
 #
@@ -100,16 +100,25 @@ main() {
 ${QUNEXCOMMAND} createStudy --studyfolder="${StudyFolder}"
 cd ${SubjectsFolder}
 
-if [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ]; then
-
+if [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ] || [ "${HCPpipelineProcess}" == "MsmAllProcessing" ] ; then
 
 	BoldList=`opts_GetOpt "--boldlist" $@`
+ 	## Here, we generate an identical batch.txt as used for MultiRunIcaFixProcessing, except with the addition/modification
+ 	## of a _hcp_msmall_bolds parameter, which should be just the resting-state runs (i.e., exclude runs starting with 'tf')
+ 	## This batch.txt must otherwise have identical runs (and order) to that used in MultiRunIcaFixProcessing,
+ 	## since hcp_MSMAll will internally construct its _hcp_icafix_bolds parameter, and that parameter must be identical
+ 	## to that used in hcp_ICAFix for the processing to work correctly.
+ 	MsmAllBolds=`echo "${BoldList}" | sed -e "s/|/,/g" -e "s/,tf[^,]*//g"`
 	## Using a template file here instead of a generated file.  The generated file needs modifications before it's useful.
 	StudyFolderRepl=`printf ${StudyFolder} | sed -e 's/[\/&]/\\\\&/g'`
 	## Remove runs from batch template that aren’t part of BoldList, preserving the order in the template
-	cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | sed -e "s/@@@Subject@@@/${Subject}/g" -e "s/@@@SubjectPart@@@/${SubjectPart}/g" -e "s/@@@StudyFolder@@@/${StudyFolderRepl}/g" |\
-		 grep -v "^[0-9][0-9]*:" > $BatchFile
-	cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | grep "^[0-9][0-9]*:" | egrep "filename\((${BoldList})\)" >> $BatchFile
+ 	## hcp_ICAFix will internally construct its _hcp_icafix_bolds parameters from the runs listed in batch.txt.
+        cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | \
+		sed -e "s/@@@Subject@@@/${Subject}/g" -e "s/@@@SubjectPart@@@/${SubjectPart}/g" -e "s/@@@StudyFolder@@@/${StudyFolderRepl}/g" -e "s/@@@MsmAllBolds@@@/${MsmAllBolds}/g" |\
+                 grep -v "^[0-9][0-9]*:" > $BatchFile
+	## Remove runs from batch template that aren’t part of BoldList, preserving the order in the template.
+ 	## Note that the order of runs in BoldList does NOT alter the order in batch.txt.
+        cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | grep "^[0-9][0-9]*:" | egrep "filename\((${BoldList})\)" >> $BatchFile
 
 else
 
@@ -214,7 +223,7 @@ elif [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ]; then
 		## NOTE:  We've included only scans that exist int the batch.txt file, and they're in the preferred order
 		#--hcp_icafix_bolds="${IcaFixBolds}" \
 		
-	## No ReapplyFix
+	## No ReapplyFix (run automatically as part of hcp_ICAFix)
 	########################## hcp_ReApplyFix
 	#${QUNEXCOMMAND} hcp_ReApplyFix \
 	#	--sessions="${StudyFolder}/processing/batch.txt" \
@@ -224,7 +233,24 @@ elif [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ]; then
 	#	--hcp_matlab_mode="compiled" \
 	#	--cores="${cores}" \
 	#	--nprocess="0"
+		
+elif [ "${HCPpipelineProcess}" == "MsmAllProcessing" ]; then
+	mkdir -p "${StudyFolder}/subjects/${Subject}/hcp/${Subject}" 
+	mv ${StudyFolder}/T*w "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
+	mv ${StudyFolder}/MNINonLinear "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
+	#mv ${StudyFolder}/*fMRI_* "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
 
+	######################### hcp_MSMAll
+	#--hcp_msmall_bolds="rfMRI_CONCAT:${MsmAllBolds}" \
+	#--hcp_icafix_bolds="fMRI_CONCAT_ALL:${IcaFixBolds}" \
+	#--hcp_msmall_bolds="${MsmAllBolds}" \
+	${QUNEXCOMMAND} hcp_MSMAll \
+		--sessions="${StudyFolder}/processing/batch.txt" \
+		--subjectsfolder="${StudyFolder}/subjects" \
+		--overwrite="${Overwrite}" \
+		--hcp_matlab_mode="compiled" \
+		--cores="${cores}" 
+		
 elif [ "${HCPpipelineProcess}" == "DiffusionPreprocessing" ]; then
 	mv ${StudyFolder}/T*w "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
 	mv ${StudyFolder}/MNINonLinear "${StudyFolder}/subjects/${Subject}/hcp/${Subject}/" 
