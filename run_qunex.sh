@@ -102,22 +102,24 @@ cd ${SubjectsFolder}
 
 if [ "${HCPpipelineProcess}" == "MultiRunIcaFixProcessing" ] || [ "${HCPpipelineProcess}" == "MsmAllProcessing" ] ; then
 
+	## For these pipelines, we use a template-based approach to generate batch.txt rather than 'createBatch'.
+	## hcp_icafix_bolds: Not specified directly in batch.txt -- instead both hcp_ICAFix and hcp_MSMAll will
+	##   internally construct this parameter from the runs (and their order) listed in the resulting batch.txt.
+	##   It is important that this parameter is identical in both pipelines for the processing to work correctly,
+	##   which is why both pipelines are handled in an integrated fashion within this same conditional.
+	## hcp_msmall_bolds: Controls which runs contribute to the MSMAll registration, which should be just the
+	##   resting-state scans. Irrelevant to hcp_ICAFix, but harmless to include in its batch.txt file.
+
 	BoldList=`opts_GetOpt "--boldlist" $@`
- 	## Here, we generate an identical batch.txt as used for MultiRunIcaFixProcessing, except with the addition/modification
- 	## of a _hcp_msmall_bolds parameter, which should be just the resting-state runs (i.e., exclude runs starting with 'tf')
- 	## This batch.txt must otherwise have identical runs (and order) to that used in MultiRunIcaFixProcessing,
- 	## since hcp_MSMAll will internally construct its _hcp_icafix_bolds parameter, and that parameter must be identical
- 	## to that used in hcp_ICAFix for the processing to work correctly.
- 	MsmAllBolds=`echo "${BoldList}" | sed -e "s/|/,/g" -e "s/,tf[^,]*//g"`
-	## Using a template file here instead of a generated file.  The generated file needs modifications before it's useful.
+ 	MsmAllBolds=`echo "${BoldList}" | sed -e "s/|/,/g" -e "s/,tf[^,]*//g"`  # exclude runs starting with 'tf'
 	StudyFolderRepl=`printf ${StudyFolder} | sed -e 's/[\/&]/\\\\&/g'`
-	## Remove runs from batch template that aren’t part of BoldList, preserving the order in the template
- 	## hcp_ICAFix will internally construct its _hcp_icafix_bolds parameters from the runs listed in batch.txt.
-        cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | \
+
+	## The template file needs modifications before it's appropriate.
+	cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | \
 		sed -e "s/@@@Subject@@@/${Subject}/g" -e "s/@@@SubjectPart@@@/${SubjectPart}/g" -e "s/@@@StudyFolder@@@/${StudyFolderRepl}/g" -e "s/@@@MsmAllBolds@@@/${MsmAllBolds}/g" |\
-                 grep -v "^[0-9][0-9]*:" > $BatchFile
-	## Remove runs from batch template that aren’t part of BoldList, preserving the order in the template.
- 	## Note that the order of runs in BoldList does NOT alter the order in batch.txt.
+        grep -v "^[0-9][0-9]*:" > $BatchFile
+	## Add the lines in the template that are in BoldList into the batch file.
+ 	## Note that the order of runs in BoldList does NOT alter their order in batch.txt.
         cat /opt/xnat_pbs_jobs_control/batch.txt.tmpl | grep "^[0-9][0-9]*:" | egrep "filename\((${BoldList})\)" >> $BatchFile
 
 else
